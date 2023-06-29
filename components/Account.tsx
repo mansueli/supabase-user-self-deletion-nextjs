@@ -14,7 +14,10 @@ export default function Account({ session }: { session: Session }) {
   const [avatar_url, setAvatarUrl] = useState<Profiles['avatar_url']>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const router = useRouter()
-
+  //  for password fields
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
   useEffect(() => {
     async function getProfile() {
       try {
@@ -60,6 +63,30 @@ export default function Account({ session }: { session: Session }) {
       setIsModalOpen(false)
       await supabase.auth.signOut()
       router.push('/')
+    }
+  }
+  async function updatePassword() {
+    try {
+      setLoading(true)
+
+      if (!user) throw new Error('No user')
+
+      if (newPassword !== confirmNewPassword) {
+        alert('New passwords do not match!')
+        return
+      }
+
+      // Call the secure update password function
+      const { data, error } = await supabase.rpc('secure_update_password', { oldPassword, newPassword })
+
+      if (error) throw error
+
+      alert('Password updated!')
+    } catch (error) {
+      alert('Error updating the password!')
+      console.log(error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -128,7 +155,7 @@ export default function Account({ session }: { session: Session }) {
           onChange={(e) => setWebsite(e.target.value)}
         />
       </div>
-  
+
       <div>
         <button
           className="button primary block"
@@ -138,22 +165,60 @@ export default function Account({ session }: { session: Session }) {
           {loading ? 'Loading ...' : 'Update'}
         </button>
       </div>
-  
+      // Add new form to the return statement
+      <div>
+        <label htmlFor="old-password">Old Password</label>
+        <input
+          id="old-password"
+          type="password"
+          value={oldPassword}
+          onChange={(e) => setOldPassword(e.target.value)}
+        />
+      </div>
+      <div>
+        <label htmlFor="new-password">New Password</label>
+        <input
+          id="new-password"
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+        />
+      </div>
+      <div>
+        <label htmlFor="confirm-new-password">Confirm New Password</label>
+        <input
+          id="confirm-new-password"
+          type="password"
+          value={confirmNewPassword}
+          onChange={(e) => setConfirmNewPassword(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <button
+          className="button primary block"
+          onClick={updatePassword}
+          disabled={loading}
+        >
+          {loading ? 'Loading ...' : 'Update Password'}
+        </button>
+      </div>
+
       <div>
         <button className="button block" onClick={async () => {
-                                                  await supabase.auth.signOut()
-                                                  router.push('/')
-                                                  }}>
+          await supabase.auth.signOut()
+          router.push('/')
+        }}>
           Sign Out
         </button>
       </div>
-  
+
       <div>
         <button className="button error block" onClick={() => setIsModalOpen(true)}>
           Delete Account
         </button>
       </div>
-  
+
       {isModalOpen && (
         <div className="modal-container">
           <div className="modal-content">
@@ -171,5 +236,5 @@ export default function Account({ session }: { session: Session }) {
         </div>
       )}
     </div>
-  )  
+  )
 }
