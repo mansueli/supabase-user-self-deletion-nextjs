@@ -11,44 +11,54 @@ export default function Account({ session }: { session: Session }) {
   const [loading, setLoading] = useState(true)
   const [username, setUsername] = useState<Profiles['username']>(null)
   const [website, setWebsite] = useState<Profiles['website']>(null)
-  const [avatar_url, setAvatarUrl] = useState<Profiles['avatar_url']>(null)
+  const [avatar_url, setAvatarUrl] = useState(() => profile?.avatar_url || '');
   const [isModalOpen, setIsModalOpen] = useState(false)
   const router = useRouter()
   //  for password fields
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [profile, setProfile] = useState<Profiles | null>(null);
+
   useEffect(() => {
     async function getProfile() {
-      try {
-        setLoading(true)
-        if (!user) throw new Error('No user')
+        try {
+            setLoading(true);
+            if (!user) throw new Error('No user');
 
-        let { data, error, status } = await supabase
-          .from('profiles')
-          .select(`username, website, avatar_url`)
-          .eq('id', user.id)
-          .single()
+            let { data, error } = await supabase
+                .from('profiles')
+                .select(`username, website, avatar_url, full_name, id, updated_at`)
+                .eq('id', user.id)
+                .single();
 
-        if (error && status !== 406) {
-          throw error
+            if (data) {
+                setProfile({
+                    id: user.id,
+                    updated_at: data.updated_at,
+                    username: data.username,
+                    full_name: data.full_name,
+                    avatar_url: data.avatar_url,
+                    website: data.website,
+                });
+
+                // Update the individual state variables
+                setUsername(data.username);
+                setWebsite(data.website);
+                setAvatarUrl(data.avatar_url? data.avatar_url : '');
+            }
+        } catch (error) {
+            alert('Error loading user data!');
+            console.log(error);
+        } finally {
+            setLoading(false);
         }
-
-        if (data) {
-          setUsername(data.username)
-          setWebsite(data.website)
-          setAvatarUrl(data.avatar_url)
-        }
-      } catch (error) {
-        alert('Error loading user data!')
-        console.log(error)
-      } finally {
-        setLoading(false)
-      }
     }
 
-    getProfile()
-  }, [session, user, supabase])
+    getProfile();
+}, [user]);
+
+  
   async function deleteAccount() {
     try {
       setLoading(true)
@@ -77,7 +87,11 @@ export default function Account({ session }: { session: Session }) {
       }
 
       // Call the secure update password function
-      const { data, error } = await supabase.rpc('secure_update_password', { oldPassword, newPassword })
+      const { data, error } = await supabase.functions.invoke('secure_update_password',{ body: {
+        "oldPassword": oldPassword,
+        "newPassword": newPassword
+        }
+      });
 
       if (error) throw error
 

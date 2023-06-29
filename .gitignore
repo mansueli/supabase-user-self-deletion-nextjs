@@ -1,0 +1,5 @@
+node_modules/
+*/.DS_Store
+supabase/.DS_Store
+supabase/functions/.DS_Store
+.DS_Store
