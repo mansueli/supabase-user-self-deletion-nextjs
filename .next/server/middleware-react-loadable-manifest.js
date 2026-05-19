@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST='{"node_modules/@supabase/functions-js/dist/module/helper.js -> @supabase/node-fetch":{"id":9743,"files":[]},"node_modules/@supabase/gotrue-js/dist/module/lib/helpers.js -> @supabase/node-fetch":{"id":9743,"files":[]},"node_modules/@supabase/storage-js/dist/module/lib/helpers.js -> @supabase/node-fetch":{"id":9743,"files":[]}}';
