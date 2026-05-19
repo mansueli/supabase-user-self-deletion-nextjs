@@ -1,101 +1,98 @@
-import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from 'https://deno.land/std@0.192.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, jsonResponse } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/
 
-serve(async (req) => {
+function isValidPassword(value: string) {
+  return passwordPattern.test(value)
+}
+
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: getCorsHeaders(req) })
   }
-  console.log("Request received:"+req.headers.get("Authorization")!);
+
+  if (req.method !== 'POST') {
+    return jsonResponse(req, { error: 'Method not allowed' }, 405)
+  }
+
+  const authorization = req.headers.get('Authorization')
+  if (!authorization) {
+    return jsonResponse(req, { error: 'Missing authorization header' }, 401)
+  }
+
   const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     {
-      global: { headers: { Authorization: req.headers.get("Authorization")! } },
+      global: { headers: { Authorization: authorization } },
       auth: {
         autoRefreshToken: false,
         persistSession: false,
-        detectSessionInUrl: false
-      }
+        detectSessionInUrl: false,
+      },
     }
-  );
-  console.log("Supabase client created");
+  )
 
-  const { data: { user }, error: userError } = await supabaseClient.auth
-    .getUser();
-  console.log("User fetched", user);
-  if (userError) {
-    console.error("User error", userError);
-    return new Response(JSON.stringify({ error: userError.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
-  }
-  const { oldPassword, newPassword } = await req.json();
-  console.log("Received old and new passwords", oldPassword, newPassword);
+  const {
+    data: { user },
+    error: userError,
+  } = await supabaseClient.auth.getUser()
 
-  const { data: isValidOldPassword, error: passwordError } =
-    await supabaseClient.rpc("verify_user_password", { password: oldPassword });
-  console.log("Old password verified", isValidOldPassword);
-  if (passwordError || !isValidOldPassword) {
-    console.error("Invalid old password", passwordError);
-    return new Response(JSON.stringify({ error: "Invalid old password" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+  if (userError || !user) {
+    return jsonResponse(req, { error: 'Unauthorized' }, 401)
   }
+
+  let payload: { oldPassword?: unknown; newPassword?: unknown }
   try {
-    const { data: profiles, error: profileError } = await supabaseClient.from(
-      "profiles",
-    ).select("id, avatar_url");
-    console.log("Profile data fetched", profiles);
-    if (profileError) throw profileError;
-    const user_id = profiles[0].id;
-    console.log("User id", user_id);
+    payload = await req.json()
+  } catch {
+    return jsonResponse(req, { error: 'Invalid request body' }, 400)
+  }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  const { oldPassword, newPassword } = payload
+
+  if (typeof oldPassword !== 'string' || typeof newPassword !== 'string') {
+    return jsonResponse(req, { error: 'Passwords must be strings' }, 400)
+  }
+
+  if (!isValidPassword(newPassword)) {
+    return jsonResponse(
+      req,
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-          detectSessionInUrl: false
-        }
-      }
-    );
-    console.log("Admin client created");
+        error:
+          'New password must be at least 8 characters long and include uppercase, lowercase, numeric, and special characters',
+      },
+      400
+    )
+  }
 
-    const { error: updateError } = await supabaseAdmin
-      .auth.admin.updateUserById(
-        user_id,
-        { password: newPassword },
-      );
-    console.log("Password updated");
+  if (oldPassword === newPassword) {
+    return jsonResponse(req, { error: 'New password must differ from the current password' }, 400)
+  }
+
+  const { data: isValidOldPassword, error: passwordError } = await supabaseClient.rpc(
+    'verify_user_password',
+    { password: oldPassword }
+  )
+
+  if (passwordError || !isValidOldPassword) {
+    return jsonResponse(req, { error: 'Invalid old password' }, 400)
+  }
+
+  try {
+    const { error: updateError } = await supabaseClient.auth.updateUser({
+      password: newPassword,
+    })
+
     if (updateError) {
-      console.error("Update error", updateError);
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 400,
-      });
+      return jsonResponse(req, { error: updateError.message }, 400)
     }
   } catch (error) {
-    console.error("Caught error", error);
-    return new Response(JSON.stringify({ error: error }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    const message = error instanceof Error ? error.message : 'Unable to update password'
+    return jsonResponse(req, { error: message }, 400)
   }
-  console.log("Password update successful");
-  return new Response(
-    JSON.stringify({ message: "Password updated successfully" }),
-    {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    },
-  );
-});
+
+  return jsonResponse(req, { message: 'Password updated successfully' }, 200)
+})
