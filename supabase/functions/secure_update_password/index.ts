@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.192.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, jsonResponse } from '../_shared/cors.ts'
 
-const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/
 
 function isValidPassword(value: string) {
   return passwordPattern.test(value)
@@ -62,7 +62,7 @@ serve(async (req: Request) => {
       req,
       {
         error:
-          'New password must be at least 8 characters long and include uppercase, lowercase, and numeric characters',
+          'New password must be at least 8 characters long and include uppercase, lowercase, numeric, and special characters',
       },
       400
     )

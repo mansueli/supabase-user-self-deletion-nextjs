@@ -85,8 +85,8 @@ serve(async (req: Request) => {
     const { error: invalidationError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
       email: `${user.id}@deleted-users.example.com`,
       phone: '',
-      user_metadata: { ...user.user_metadata, deleted: true },
-      app_metadata: { ...user.app_metadata, deleted: true },
+      user_metadata: { deleted: true },
+      app_metadata: { deleted: true },
     })
     if (invalidationError) {
       throw invalidationError
