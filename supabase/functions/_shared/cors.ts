@@ -16,6 +16,11 @@ export function getCorsHeaders(req: Request) {
   }
 }
 
+export function hasAllowedOrigin(req: Request) {
+  const origin = req.headers.get('Origin')
+  return !origin || allowedOrigins.includes(origin)
+}
+
 export function jsonResponse(req: Request, body: Record<string, unknown>, status: number) {
   return new Response(JSON.stringify(body), {
     headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },

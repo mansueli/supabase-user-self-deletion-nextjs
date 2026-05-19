@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.182.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.14.0'
-import { getCorsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { getCorsHeaders, hasAllowedOrigin, jsonResponse } from '../_shared/cors.ts'
 
 console.log('Function "user-invalidation" up and running!')
 
@@ -34,6 +34,10 @@ function createAdminClient() {
 }
 
 serve(async (req: Request) => {
+  if (!hasAllowedOrigin(req)) {
+    return jsonResponse(req, { error: 'Origin not allowed' }, 403)
+  }
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: getCorsHeaders(req) })
   }
@@ -72,6 +76,10 @@ serve(async (req: Request) => {
       throw profileError
     }
 
+    if (!profile) {
+      return jsonResponse(req, { error: 'Profile not found' }, 404)
+    }
+
     const supabaseAdmin = createAdminClient()
 
     const { error: invalidationError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
@@ -84,7 +92,7 @@ serve(async (req: Request) => {
       throw invalidationError
     }
 
-    if (profile?.avatar_url) {
+    if (profile.avatar_url) {
       const { error: avatarError } = await supabaseAdmin.storage
         .from('avatars')
         .remove([profile.avatar_url])
