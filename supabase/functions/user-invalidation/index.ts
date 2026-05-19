@@ -54,8 +54,12 @@ serve(async (req: Request) => {
       error: userError,
     } = await supabaseClient.auth.getUser()
 
-    if (userError || !user) {
-      return jsonResponse(req, { error: 'Unauthorized' }, 401)
+    if (userError) {
+      return jsonResponse(req, { error: 'Authentication failed' }, 401)
+    }
+
+    if (!user) {
+      return jsonResponse(req, { error: 'User not found' }, 404)
     }
 
     const { data: profile, error: profileError } = await supabaseClient

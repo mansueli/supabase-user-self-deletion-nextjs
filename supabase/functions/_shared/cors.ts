@@ -12,7 +12,7 @@ export function getCorsHeaders(req: Request) {
     ...(origin && allowedOrigins.includes(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'OPTIONS, POST',
-    Vary: 'Origin',
+    'Vary': 'Origin',
   }
 }
 
